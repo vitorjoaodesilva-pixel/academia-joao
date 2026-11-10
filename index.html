@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f4f6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Treino João">
+  <title>Treino - João Vitor</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 20px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f4f6;
+      color: #1f2937;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .safe-top-padding { padding-top: max(var(--safe-top), 16px); }
+    .safe-bottom-padding { padding-bottom: max(var(--safe-bottom), 16px); }
+    .custom-scroll::-webkit-scrollbar { display: none; }
+    .custom-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-[#f4f4f6] text-neutral-800 min-h-screen flex flex-col antialiased">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-neutral-200 safe-top-padding px-4 pb-3 shadow-xs">
+    <div class="flex items-center justify-between pt-1 max-w-lg mx-auto">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-[#557C55] shadow-[0_0_8px_#557C55]"></span>
+          <h1 class="text-base font-bold tracking-tight text-neutral-900">João Vitor da Silva</h1>
+        </div>
+        <p class="text-[11px] text-neutral-500 font-medium">1,93m • 120kg • Hipertrofia & Definição</p>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button onclick="syncFromSheets(true)" id="btn-sync" class="p-2 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 active:scale-95 transition border border-neutral-200" title="Atualizar Treino da Planilha">
+          <i data-lucide="refresh-cw" class="w-5 h-5 text-[#557C55]"></i>
+        </button>
+        <button id="btn-sheet-modal" class="p-2 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 active:scale-95 transition border border-neutral-200" title="Configurar Planilha">
+          <i data-lucide="file-spreadsheet" class="w-5 h-5 text-neutral-700"></i>
+        </button>
+        <button id="btn-info-modal" class="p-2 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 active:scale-95 transition border border-neutral-200" title="Diretrizes">
+          <i data-lucide="info" class="w-5 h-5 text-neutral-700"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Abas dos Dias -->
+  <nav class="bg-white border-b border-neutral-200 sticky top-[68px] z-30 px-3 py-2">
+    <div id="day-tabs" class="flex gap-2 overflow-x-auto custom-scroll py-0.5 max-w-lg mx-auto"></div>
+  </nav>
+
+  <!-- Conteúdo Principal -->
+  <main class="flex-1 max-w-lg w-full mx-auto p-4 pb-44 flex flex-col">
+    <div id="day-summary" class="mb-3 bg-white p-3.5 rounded-2xl border border-neutral-200 shadow-xs"></div>
+    <div id="single-exercise-container" class="flex-1 flex flex-col justify-between"></div>
+  </main>
+
+  <!-- Cronômetro Flutuante (Segundo Plano + Alerta) -->
+  <div id="timer-bar" class="fixed bottom-0 left-0 right-0 z-50 bg-white/98 backdrop-blur-xl border-t border-neutral-200 safe-bottom-padding px-4 pt-3 shadow-[0_-8px_25px_rgba(0,0,0,0.06)]">
+    <div class="max-w-lg mx-auto flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-baseline gap-2">
+          <div id="timer-display" class="font-mono text-3xl sm:text-4xl font-black tracking-wider text-[#557C55]">00:00</div>
+          <span id="timer-status" class="text-xs text-neutral-500 font-semibold tracking-wide">TIMER PRONTO</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btn-toggle-timer" onclick="toggleTimer()" class="px-4 py-2 bg-[#557C55] hover:bg-[#436343] text-white font-black rounded-xl active:scale-95 transition flex items-center gap-1.5 shadow-md shadow-[#557C55]/20">
+            <i id="timer-icon" data-lucide="play" class="w-5 h-5 fill-current"></i>
+            <span id="timer-btn-text" class="text-xs uppercase">Iniciar</span>
+          </button>
+          <button onclick="resetTimer()" title="Resetar Timer" class="p-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl active:scale-95 transition border border-neutral-200">
+            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-1.5 pt-1 border-t border-neutral-100">
+        <span class="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">Descanso:</span>
+        <div class="flex gap-1.5">
+          <button onclick="startQuickTimer(30)" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-xs font-mono font-bold rounded-lg text-neutral-700 border border-neutral-200">30s</button>
+          <button onclick="startQuickTimer(45)" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-xs font-mono font-bold rounded-lg text-neutral-700 border border-neutral-200">45s</button>
+          <button onclick="startQuickTimer(60)" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-xs font-mono font-bold rounded-lg text-neutral-700 border border-neutral-200">60s</button>
+          <button onclick="startQuickTimer(90)" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-xs font-mono font-bold rounded-lg text-neutral-700 border border-neutral-200">90s</button>
+          <button onclick="startQuickTimer(120)" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-xs font-mono font-bold rounded-lg text-neutral-700 border border-neutral-200">120s</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Planilha Google Sheets -->
+  <div id="sheet-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white border border-neutral-200 max-w-md w-full rounded-2xl p-5 shadow-2xl">
+      <div class="flex justify-between items-center pb-3 border-b border-neutral-100">
+        <h3 class="font-bold text-base text-neutral-900 flex items-center gap-2">
+          <i data-lucide="file-spreadsheet" class="w-5 h-5 text-[#557C55]"></i> Planilha Google Conectada
+        </h3>
+        <button id="close-sheet-modal" class="p-1 rounded-lg text-neutral-400 hover:text-neutral-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="mt-4 space-y-3 text-xs text-neutral-600">
+        <p class="leading-relaxed">A sua planilha já está vinculada por padrão. Sempre que alterar algum exercício no Google Sheets, basta tocar no ícone de atualizar (<i data-lucide="refresh-cw" class="w-3.5 h-3.5 inline text-[#557C55]"></i>) no topo do aplicativo.</p>
+        <div>
+          <label class="block font-bold text-neutral-700 mb-1">Link CSV da Planilha:</label>
+          <input type="url" id="sheet-url-input" class="w-full bg-neutral-50 border border-neutral-300 rounded-xl p-2.5 text-xs font-mono text-neutral-800 focus:outline-none focus:border-[#557C55]">
+        </div>
+      </div>
+      <div class="mt-5 flex gap-2">
+        <button onclick="saveSheetUrl()" class="flex-1 py-2.5 bg-[#557C55] hover:bg-[#436343] text-white font-bold rounded-xl text-xs transition">
+          Salvar & Sincronizar Agora
+        </button>
+        <button onclick="resetToDefaultWorkout()" class="px-3 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 font-semibold rounded-xl text-xs transition" title="Restaurar padrão">
+          Restaurar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Diretrizes Biomecânicas -->
+  <div id="info-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white border border-neutral-200 max-w-md w-full rounded-2xl p-5 shadow-2xl overflow-y-auto max-h-[85vh]">
+      <div class="flex justify-between items-center pb-3 border-b border-neutral-100">
+        <h3 class="font-bold text-base text-neutral-900 flex items-center gap-2">
+          <i data-lucide="shield-alert" class="w-5 h-5 text-[#557C55]"></i> Diretrizes Biomecânicas
+        </h3>
+        <button id="close-info-modal" class="p-1 rounded-lg text-neutral-400 hover:text-neutral-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="mt-4 space-y-2.5 text-xs text-neutral-600 leading-relaxed">
+        <div class="bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+          <span class="font-bold text-[#557C55] block mb-0.5">🫁 Respiração & Pressão:</span>
+          Expire na subida (fase concêntrica) e inspire na descida controlada.
+        </div>
+        <div class="bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+          <span class="font-bold text-neutral-800 block mb-0.5">🦴 Estabilidade Articular:</span>
+          Prioridade para movimentos guiados e apoiados para isolar o músculo e proteger a coluna.
+        </div>
+        <div class="bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+          <span class="font-bold text-amber-600 block mb-0.5">🚶‍♂️ Esteira Inclinada (15 a 20 min):</span>
+          Inclinação 5% a 7%, velocidade 4.5 a 5.2 km/h. Alto gasto metabólico sem impacto articular.
+        </div>
+      </div>
+      <button id="close-info-btn" class="w-full mt-4 py-2.5 bg-[#557C55] text-white font-bold rounded-xl text-xs">
+        Fechar
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Link CSV oficial da sua planilha Google Sheets já integrado
+    const DEFAULT_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSPOuL_Qdy8enFPEIiB_9AaMbBXvZMGZDwvRQMYCNfKyQEbca3dknKnfPaz4y2LTyg6rBBfUqKuMZRh/pub?gid=0&single=true&output=csv";
+
+    const dayNamesMap = {
+      seg: "Segunda-feira",
+      ter: "Terça-feira",
+      qua: "Quarta-feira",
+      qui: "Quinta-feira",
+      sex: "Sexta-feira",
+      sab: "Sábado",
+      dom: "Domingo"
+    };
+
+    const defaultWorkoutData = [
+      {
+        id: "seg", name: "Segunda-feira", tag: "Inferiores A", subtitle: "Quadríceps & Panturrilhas",
+        exercises: [
+          { id: "seg_1", name: "Leg Press 45°", sets: 3, reps: "10–12", rest: 120, notes: "Cadência controlada na descida. Sem hiperestender joelhos.", ytQuery: "execucao correta leg press 45" },
+          { id: "seg_2", name: "Agachamento no Smith", sets: 3, reps: "10–12", rest: 90, notes: "Pés ligeiramente à frente para segurança lombar.", ytQuery: "agachamento smith execucao correta" },
+          { id: "seg_3", name: "Cadeira Extensora", sets: 3, reps: "12–15", rest: 60, notes: "Pausa de 1s em contração no topo.", ytQuery: "cadeira extensora execucao" },
+          { id: "seg_4", name: "Cadeira Adutora", sets: 3, reps: "12–15", rest: 60, notes: "Abertura suave sem soltar peso no final.", ytQuery: "cadeira adutora execucao correta" },
+          { id: "seg_5", name: "Gêmeos no Leg Press ou em Pé", sets: 4, reps: "15", rest: 60, notes: "Alongamento completo e pausa no topo.", ytQuery: "gemeos leg press execucao" },
+          { id: "seg_6", name: "Esteira Inclinada", sets: 1, reps: "15 a 20 min", rest: 0, cardio: true, notes: "Inclinação 5% a 7% | 4.5 a 5.2 km/h", ytQuery: "esteira inclinada cardio beneficios" }
+        ]
+      },
+      {
+        id: "ter", name: "Terça-feira", tag: "Inferiores B", subtitle: "Posterior, Glúteos & Core",
+        exercises: [
+          { id: "ter_1", name: "Mesa Flexora", sets: 4, reps: "10–12", rest: 75, notes: "Quadril colado no banco, sem arquear coluna.", ytQuery: "mesa flexora execucao correta" },
+          { id: "ter_2", name: "Cadeira Flexora", sets: 3, reps: "12", rest: 60, notes: "Pico de contração na flexão máxima.", ytQuery: "cadeira flexora execucao" },
+          { id: "ter_3", name: "Elevação Pélvica Máquina/Solo", sets: 3, reps: "12", rest: 75, notes: "Aperte glúteos 2s no topo do movimento.", ytQuery: "elevacao pelvica na maquina execucao" },
+          { id: "ter_4", name: "Cadeira Abdutora", sets: 3, reps: "15", rest: 60, notes: "Tronco firme, foco em glúteo médio.", ytQuery: "cadeira abdutora execucao correta" },
+          { id: "ter_5", name: "Prancha Frontal Isométrica", sets: 3, reps: "30–45s", rest: 60, notes: "Abdômen travado, respiração curta e controlada.", ytQuery: "prancha abdominal isometrica correta" },
+          { id: "ter_6", name: "Esteira Inclinada", sets: 1, reps: "15 a 20 min", rest: 0, cardio: true, notes: "Inclinação 5% a 7% | Ritmo contínuo", ytQuery: "esteira inclinada beneficios" }
+        ]
+      },
+      {
+        id: "qua", name: "Quarta-feira", tag: "Superiores A", subtitle: "Empurrar — Peito, Deltoide & Tríceps",
+        exercises: [
+          { id: "qua_1", name: "Supino Inclinado Máquina / Halteres", sets: 3, reps: "10–12", rest: 90, notes: "Escápulas aduzidas e peito aberto.", ytQuery: "supino inclinado articulado execucao" },
+          { id: "qua_2", name: "Supino Reto na Máquina / Articulado", sets: 3, reps: "10–12", rest: 90, notes: "Trajetória uniforme sem dar tranco nos cotovelos.", ytQuery: "supino reto maquina execucao correta" },
+          { id: "qua_3", name: "Desenvolvimento Sentado Máquina", sets: 3, reps: "10–12", rest: 90, notes: "Costas totalmente apoiadas no encosto.", ytQuery: "desenvolvimento maquina sentado" },
+          { id: "qua_4", name: "Elevação Lateral com Halteres", sets: 4, reps: "12–15", rest: 60, notes: "Eleve até a linha dos ombros com controle.", ytQuery: "elevacao lateral sentado com halteres" },
+          { id: "qua_5", name: "Tríceps Corda na Polia", sets: 3, reps: "12–15", rest: 60, notes: "Abra as pontas da corda na extensão total.", ytQuery: "triceps corda polia execucao" },
+          { id: "qua_6", name: "Tríceps Testa na Polia com Barra", sets: 3, reps: "10–12", rest: 60, notes: "Cotovelos fixos e paralelos.", ytQuery: "triceps testa polia barra" },
+          { id: "qua_7", name: "Esteira Inclinada", sets: 1, reps: "15 a 20 min", rest: 0, cardio: true, notes: "Inclinação 5% a 7% | 4.5 a 5.2 km/h", ytQuery: "caminhada inclinada pos treino" }
+        ]
+      },
+      {
+        id: "qui", name: "Quinta-feira", tag: "Superiores B", subtitle: "Puxar — Dorsais, Posterior & Bíceps",
+        exercises: [
+          { id: "qui_1", name: "Puxada Alta Aberta na Polia", sets: 3, reps: "10–12", rest: 90, notes: "Puxe direcionando os cotovelos para o chão.", ytQuery: "puxada alta aberta pegada pronada" },
+          { id: "qui_2", name: "Remada Baixa no Cabo (Triângulo)", sets: 3, reps: "10–12", rest: 90, notes: "Coluna neutra, puxe até o umbigo.", ytQuery: "remada baixa triangulo execucao" },
+          { id: "qui_3", name: "Remada Unilateral com Apoio (Serrote)", sets: 3, reps: "10–12", rest: 90, notes: "Banco apoiado para blindagem lombar.", ytQuery: "remada serrote unilateral apoio banco" },
+          { id: "qui_4", name: "Crucifixo Invertido na Máquina", sets: 3, reps: "12–15", rest: 60, notes: "Foco no deltoide posterior e trapézio médio.", ytQuery: "crucifixo invertido maquina pecfly" },
+          { id: "qui_5", name: "Rosca Direta na Polia / Barra W", sets: 3, reps: "10–12", rest: 60, notes: "Sem embalo do quadril.", ytQuery: "rosca direta polia baixa" },
+          { id: "qui_6", name: "Rosca Martelo com Halteres", sets: 3, reps: "10–12", rest: 60, notes: "Pegada neutra focando em braquiorradial.", ytQuery: "rosca martelo halteres correta" },
+          { id: "qui_7", name: "Esteira Inclinada", sets: 1, reps: "15 a 20 min", rest: 0, cardio: true, notes: "Recuperação ativa", ytQuery: "caminhada inclinada" }
+        ]
+      },
+      {
+        id: "sex", name: "Sexta-feira", tag: "Superiores C", subtitle: "Braços, Deltoides & Abdômen",
+        exercises: [
+          { id: "sex_1", name: "Elevação Lateral na Polia (Unilateral)", sets: 4, reps: "12–15", rest: 60, notes: "Tensão constante do cabo no ponto zero.", ytQuery: "elevacao lateral na polia baixa unilateral" },
+          { id: "sex_2", name: "Face Pull na Polia", sets: 3, reps: "12–15", rest: 60, notes: "Puxe na linha dos olhos com rotação externa.", ytQuery: "face pull na polia execucao" },
+          { id: "sex_3", name: "Rosca Scott na Máquina", sets: 3, reps: "10–12", rest: 60, notes: "Isolamento sem tirar axilas do apoio.", ytQuery: "rosca scott maquina correta" },
+          { id: "sex_4", name: "Rosca Inclinada no Banco 45°", sets: 3, reps: "10–12", rest: 60, notes: "Alongamento profundo da cabeça longa do bíceps.", ytQuery: "rosca inclinada banco 45 graus" },
+          { id: "sex_5", name: "Tríceps Francês na Polia / Halter", sets: 3, reps: "12", rest: 60, notes: "Cotovelos o mais fechados possível.", ytQuery: "triceps frances polia corda" },
+          { id: "sex_6", name: "Abdominal Infra no Solo / Banco", sets: 3, reps: "15", rest: 60, notes: "Elevação curta da pelve sem puxar coluna.", ytQuery: "abdominal infra solo execucao" },
+          { id: "sex_7", name: "Esteira Inclinada", sets: 1, reps: "15 a 20 min", rest: 0, cardio: true, notes: "Inclinação 5% a 7% | 4.5 a 5.2 km/h", ytQuery: "esteira inclinada" }
+        ]
+      },
+      {
+        id: "sab", name: "Sábado", tag: "Inferiores C", subtitle: "Unilaterais, Estabilidade & Panturrilhas",
+        exercises: [
+          { id: "sab_1", name: "Afundo Estático ou Búlgaro com Suporte", sets: 3, reps: "10 / perna", rest: 75, notes: "Use apoio de mãos para equilíbrio perfeito.", ytQuery: "agachamento bulgaro com apoio execucao" },
+          { id: "sab_2", name: "Leg Press Unilateral (45° ou Horiz.)", sets: 3, reps: "10 / perna", rest: 60, notes: "Equilíbrio de força entre as pernas.", ytQuery: "leg press unilateral execucao correta" },
+          { id: "sab_3", name: "Cadeira Extensora (Foco Contração)", sets: 3, reps: "12–15", rest: 60, notes: "Subida rápida, 1s em cima e 3s na descida.", ytQuery: "cadeira extensora pico contracao" },
+          { id: "sab_4", name: "Gêmeos Sentado (Cavalinho)", sets: 4, reps: "15", rest: 60, notes: "Foco profundo no músculo sóleo.", ytQuery: "panturrilha sentado cavalinho" },
+          { id: "sab_5", name: "Prancha Lateral", sets: 3, reps: "20–30s / lado", rest: 45, notes: "Estabilização lateral de tronco e bacia.", ytQuery: "prancha lateral correta" },
+          { id: "sab_6", name: "Esteira Inclinada (Descompressão)", sets: 1, reps: "20 min", rest: 0, cardio: true, notes: "Ritmo suave para relaxar musculatura.", ytQuery: "descompressao esteira inclinada" }
+        ]
+      },
+      {
+        id: "dom", name: "Domingo", tag: "Descanso Total", subtitle: "Regeneração Ativa & Recuperação", exercises: []
+      }
+    ];
+
+    const WORKOUT_STORAGE_KEY = "jv_workout_data_v5";
+    const PROGRESS_STORAGE_KEY = "jv_workout_progress_v5";
+    const SHEET_URL_KEY = "jv_sheet_csv_url_v5";
+
+    function loadWorkoutData() {
+      try {
+        const raw = localStorage.getItem(WORKOUT_STORAGE_KEY);
+        if (!raw) return defaultWorkoutData;
+        const parsed = JSON.parse(raw);
+        return (Array.isArray(parsed) && parsed.length > 0) ? parsed : defaultWorkoutData;
+      } catch (e) {
+        return defaultWorkoutData;
+      }
+    }
+
+    function loadProgress() {
+      try {
+        const raw = localStorage.getItem(PROGRESS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveProgress() {
+      try {
+        localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(userProgress));
+      } catch (e) {}
+    }
+
+    let workoutData = loadWorkoutData();
+    let userProgress = loadProgress();
+
+    const dayOrder = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
+    let currentDayId = dayOrder[new Date().getDay()] || "seg";
+    let currentExIndex = 0;
+
+    function getVideoLink(videoField, exName) {
+      const val = (videoField || exName || "").trim();
+      if (val.startsWith("http://") || val.startsWith("https://")) {
+        return val;
+      }
+      return `https://www.youtube.com/results?search_query=${encodeURIComponent(val)}`;
+    }
+
+    function renderTabs() {
+      const container = document.getElementById("day-tabs");
+      container.innerHTML = workoutData.map(day => {
+        const isActive = day.id === currentDayId;
+        const cls = isActive
+          ? "bg-[#557C55] text-white font-bold shadow-sm shadow-[#557C55]/30"
+          : "bg-neutral-100 text-neutral-600 hover:text-neutral-900 border border-neutral-200";
+        return `
+          <button onclick="selectDay('${day.id}')" class="px-3.5 py-1.5 rounded-xl text-xs whitespace-nowrap transition flex flex-col items-center ${cls}">
+            <span class="font-bold">${day.name.slice(0, 3)}</span>
+            <span class="text-[9px] opacity-80">${day.tag.slice(0, 11)}</span>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function selectDay(dayId) {
+      currentDayId = dayId;
+      currentExIndex = 0;
+      renderTabs();
+      renderContent();
+    }
+
+    function countCompleted(day) {
+      if (!day || !day.exercises) return 0;
+      return day.exercises.filter(ex => userProgress[ex.id] && userProgress[ex.id].done).length;
+    }
+
+    function renderContent() {
+      const day = workoutData.find(d => d.id === currentDayId) || workoutData[0];
+      const summaryEl = document.getElementById("day-summary");
+      const containerEl = document.getElementById("single-exercise-container");
+
+      const total = day.exercises.length;
+      if (currentExIndex >= total) currentExIndex = Math.max(0, total - 1);
+      const doneCount = countCompleted(day);
+
+      summaryEl.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#557C55]/10 text-[#557C55] border border-[#557C55]/20 uppercase tracking-wider">${day.tag}</span>
+              <h2 class="text-base font-black text-neutral-900">${day.name}</h2>
+            </div>
+            <p class="text-[11px] text-neutral-500">${day.subtitle}</p>
+          </div>
+          ${total > 0 ? `
+            <div class="text-right bg-neutral-50 px-3 py-1.5 rounded-xl border border-neutral-200">
+              <span class="text-xs font-mono text-[#557C55] font-bold">${doneCount} / ${total}</span>
+              <span class="block text-[9px] text-neutral-400 uppercase font-semibold">Feitos</span>
+            </div>
+          ` : ""}
+        </div>
+      `;
+
+      if (total === 0) {
+        containerEl.innerHTML = `
+          <div class="bg-white border border-neutral-200 rounded-2xl p-8 text-center my-4 flex flex-col items-center shadow-xs">
+            <div class="w-14 h-14 bg-neutral-100 rounded-full flex items-center justify-center text-[#557C55] mb-3">
+              <i data-lucide="moon" class="w-7 h-7"></i>
+            </div>
+            <h3 class="text-base font-bold text-neutral-900 mb-1">Descanso Total</h3>
+            <p class="text-xs text-neutral-500 max-w-xs leading-relaxed">Recuperação ativa, hidratação e sono profundo para reiniciar a semana.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      const ex = day.exercises[currentExIndex];
+      const savedEx = userProgress[ex.id] || { setsData: [], done: false };
+      const isDone = savedEx.done;
+      const ytUrl = getVideoLink(ex.ytQuery, ex.name);
+      const isCardio = ex.cardio || (ex.rest === 0 && ex.sets === 1);
+
+      let setsHtml = "";
+      for (let s = 1; s <= ex.sets; s++) {
+        const sData = (savedEx.setsData && savedEx.setsData[s - 1]) || { weight: "", reps: "" };
+        setsHtml += `
+          <div class="flex items-center gap-2 py-2 border-t border-neutral-100 first:border-0 text-xs">
+            <span class="w-7 text-neutral-400 font-mono font-bold">#${s}</span>
+            ${!isCardio ? `
+              <div class="flex-1 flex items-center bg-white rounded-xl px-3 py-2 border border-neutral-200 focus-within:border-[#557C55]">
+                <input type="number" step="0.5" placeholder="0" value="${sData.weight || ""}"
+                  onchange="updateSetData('${ex.id}', ${s - 1}, 'weight', this.value)"
+                  class="w-full bg-transparent text-neutral-900 font-mono text-right text-sm font-semibold focus:outline-none">
+                <span class="text-[11px] text-neutral-400 font-bold ml-1.5">kg</span>
+              </div>
+              <div class="flex-1 flex items-center bg-white rounded-xl px-3 py-2 border border-neutral-200 focus-within:border-[#557C55]">
+                <input type="text" placeholder="${ex.reps}" value="${sData.reps || ""}"
+                  onchange="updateSetData('${ex.id}', ${s - 1}, 'reps', this.value)"
+                  class="w-full bg-transparent text-neutral-900 font-mono text-center text-sm font-semibold focus:outline-none">
+                <span class="text-[11px] text-neutral-400 font-bold ml-1.5">reps</span>
+              </div>
+            ` : `
+              <div class="flex-1 text-neutral-700 font-mono font-semibold py-1.5 text-center">${ex.reps}</div>
+            `}
+            ${ex.rest > 0 ? `
+              <button onclick="startQuickTimer(${ex.rest})" class="px-2.5 py-2 bg-neutral-100 hover:bg-[#557C55]/15 hover:text-[#557C55] active:scale-95 text-neutral-700 rounded-xl font-mono text-xs font-bold border border-neutral-200 flex items-center gap-1 transition">
+                <i data-lucide="timer" class="w-3.5 h-3.5"></i> ${ex.rest}s
+              </button>
+            ` : ""}
+          </div>
+        `;
+      }
+
+      containerEl.innerHTML = `
+        <div class="bg-white border ${isDone ? "border-[#557C55] bg-[#557C55]/5" : "border-neutral-200"} rounded-2xl p-4 shadow-xs flex-1 flex flex-col justify-between">
+          <div>
+            <div class="flex items-start justify-between gap-2 mb-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">EX ${currentExIndex + 1} de ${total}</span>
+                  <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[11px] font-bold transition active:scale-95">
+                    <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    Vídeo de Execução
+                  </a>
+                </div>
+                <h3 class="font-bold text-lg text-neutral-900 leading-tight ${isDone ? "line-through text-neutral-400" : ""}">${ex.name}</h3>
+                <p class="text-xs text-neutral-500 mt-1">
+                  ${ex.sets} séries × ${ex.reps} ${ex.rest > 0 ? `• ${ex.rest}s descanso` : ""}
+                </p>
+              </div>
+              <button onclick="toggleExerciseDone('${ex.id}')" class="p-2.5 rounded-xl border ${isDone ? "bg-[#557C55] border-[#557C55] text-white" : "bg-neutral-100 border-neutral-200 text-neutral-400 hover:text-neutral-700"} transition active:scale-90">
+                <i data-lucide="${isDone ? "check" : "circle"}" class="w-6 h-6"></i>
+              </button>
+            </div>
+
+            ${ex.notes ? `
+              <div class="bg-neutral-50 rounded-xl p-2.5 text-xs text-[#557C55] mb-3 border border-neutral-200 flex items-start gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i>
+                <span class="leading-snug text-neutral-700">${ex.notes}</span>
+              </div>
+            ` : ""}
+
+            <div class="bg-neutral-50 rounded-xl p-2.5 border border-neutral-200 space-y-1">
+              <div class="flex items-center text-[10px] uppercase tracking-wider text-neutral-400 font-bold px-1 pb-1">
+                <span class="w-7">Set</span>
+                ${!isCardio ? `<span class="flex-1 text-center">Carga</span><span class="flex-1 text-center">Reps</span>` : `<span class="flex-1 text-center">Meta</span>`}
+                ${ex.rest > 0 ? `<span class="w-16 text-right">Timer</span>` : ""}
+              </div>
+              ${setsHtml}
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-neutral-100">
+            <button onclick="prevExercise()" ${currentExIndex === 0 ? 'disabled class="opacity-30 cursor-not-allowed px-3 py-2 bg-neutral-100 text-neutral-400 rounded-xl text-xs font-bold"' : 'class="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-neutral-200"'}>
+              <i data-lucide="chevron-left" class="w-4 h-4"></i> Anterior
+            </button>
+            <div class="flex gap-1.5">
+              ${day.exercises.map((_, idx) => `
+                <div onclick="goToExercise(${idx})" class="cursor-pointer w-2 h-2 rounded-full transition-all ${idx === currentExIndex ? "bg-[#557C55] w-4" : (userProgress[day.exercises[idx].id] && userProgress[day.exercises[idx].id].done ? "bg-[#557C55]/50" : "bg-neutral-300")}"></div>
+              `).join("")}
+            </div>
+            <button onclick="nextExercise()" ${currentExIndex === total - 1 ? 'disabled class="opacity-30 cursor-not-allowed px-3 py-2 bg-neutral-100 text-neutral-400 rounded-xl text-xs font-bold"' : 'class="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-neutral-200"'}>
+              Próximo <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function prevExercise() { if (currentExIndex > 0) { currentExIndex--; renderContent(); } }
+    function nextExercise() {
+      const day = workoutData.find(d => d.id === currentDayId);
+      if (day && currentExIndex < day.exercises.length - 1) { currentExIndex++; renderContent(); }
+    }
+    function goToExercise(idx) { currentExIndex = idx; renderContent(); }
+
+    function toggleExerciseDone(exId) {
+      if (!userProgress[exId]) userProgress[exId] = { setsData: [], done: false };
+      userProgress[exId].done = !userProgress[exId].done;
+      saveProgress();
+      renderContent();
+    }
+
+    function updateSetData(exId, setIdx, field, val) {
+      if (!userProgress[exId]) userProgress[exId] = { setsData: [], done: false };
+      if (!userProgress[exId].setsData[setIdx]) userProgress[exId].setsData[setIdx] = {};
+      userProgress[exId].setsData[setIdx][field] = val;
+      saveProgress();
+    }
+
+    // ==========================================
+    // SINCRONIZAÇÃO COM GOOGLE SHEETS (CSV)
+    // ==========================================
+    function parseCSV(text) {
+      const rows = [];
+      let current = [];
+      let val = "";
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        const next = text[i + 1];
+        if (inQuotes) {
+          if (c === '"' && next === '"') { val += '"'; i++; }
+          else if (c === '"') { inQuotes = false; }
+          else { val += c; }
+        } else {
+          if (c === '"') { inQuotes = true; }
+          else if (c === ',' || c === ';') { current.push(val.trim()); val = ""; }
+          else if (c === '\n' || (c === '\r' && next === '\n')) {
+            if (c === '\r') i++;
+            current.push(val.trim());
+            if (current.some(cell => cell !== "")) rows.push(current);
+            current = [];
+            val = "";
+          } else { val += c; }
+        }
+      }
+      if (val || current.length > 0) {
+        current.push(val.trim());
+        if (current.some(cell => cell !== "")) rows.push(current);
+      }
+      return rows;
+    }
+
+    async function syncFromSheets(showAlert = false) {
+      const url = localStorage.getItem(SHEET_URL_KEY) || DEFAULT_SHEET_CSV_URL;
+      if (!url) return;
+
+      const btn = document.getElementById("btn-sync");
+      if (btn) btn.classList.add("animate-spin");
+
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        const csvText = await res.text();
+        const rows = parseCSV(csvText);
+
+        if (rows.length < 2) throw new Error("Planilha vazia");
+
+        const grouped = {};
+        ["seg", "ter", "qua", "qui", "sex", "sab", "dom"].forEach(id => {
+          grouped[id] = { id, name: dayNamesMap[id], tag: id === "dom" ? "Descanso Total" : "Treino", subtitle: id === "dom" ? "Regeneração Ativa & Recuperação" : "", exercises: [] };
+        });
+
+        for (let i = 1; i < rows.length; i++) {
+          const [diaRaw, tag, subtitulo, exercicio, series, reps, descanso, notas, video] = rows[i];
+          if (!diaRaw || !exercicio) continue;
+          const dId = diaRaw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").slice(0, 3);
+          if (!grouped[dId]) continue;
+
+          if (tag) grouped[dId].tag = tag;
+          if (subtitulo) grouped[dId].subtitle = subtitulo;
+
+          const restNum = parseInt(descanso) || 0;
+          const setsNum = parseInt(series) || 1;
+          grouped[dId].exercises.push({
+            id: `${dId}_${i}`,
+            name: exercicio,
+            sets: setsNum,
+            reps: reps || "10–12",
+            rest: restNum,
+            cardio: restNum === 0 && setsNum === 1,
+            notes: notas || "",
+            ytQuery: video || exercicio
+          });
+        }
+
+        workoutData = Object.values(grouped);
+        localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workoutData));
+        renderTabs();
+        renderContent();
+
+        if (showAlert) alert("Treino sincronizado com sucesso pela sua planilha!");
+      } catch (err) {
+        if (showAlert) alert("Erro ao sincronizar. Verifique sua conexão com a internet.");
+      } finally {
+        if (btn) btn.classList.remove("animate-spin");
+      }
+    }
+
+    function openSheetModal() {
+      document.getElementById("sheet-url-input").value = localStorage.getItem(SHEET_URL_KEY) || DEFAULT_SHEET_CSV_URL;
+      const m = document.getElementById("sheet-modal");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function saveSheetUrl() {
+      const val = document.getElementById("sheet-url-input").value.trim();
+      if (val) {
+        localStorage.setItem(SHEET_URL_KEY, val);
+        document.getElementById("sheet-modal").classList.add("hidden");
+        syncFromSheets(true);
+      }
+    }
+
+    function resetToDefaultWorkout() {
+      localStorage.removeItem(WORKOUT_STORAGE_KEY);
+      localStorage.removeItem(SHEET_URL_KEY);
+      workoutData = defaultWorkoutData;
+      document.getElementById("sheet-modal").classList.add("hidden");
+      renderTabs();
+      renderContent();
+    }
+
+    // ==========================================
+    // CRONÔMETRO EM SEGUNDO PLANO + ALERTA SONORO/VIBRAÇÃO
+    // ==========================================
+    let timerTargetTime = null;
+    let timerInterval = null;
+    let isTimerRunning = false;
+    let totalTimerDuration = 0;
+
+    function playBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.25, 0.5].forEach(delay => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.15, ctx.currentTime + delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+          osc.start(ctx.currentTime + delay);
+          osc.stop(ctx.currentTime + delay + 0.18);
+        });
+      } catch (e) {}
+    }
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, "0");
+      const s = (sec % 60).toString().padStart(2, "0");
+      return `${m}:${s}`;
+    }
+
+    function checkTimerTick() {
+      if (!isTimerRunning || !timerTargetTime) return;
+      const diffSec = Math.max(0, Math.ceil((timerTargetTime - Date.now()) / 1000));
+      document.getElementById("timer-display").innerText = formatTime(diffSec);
+      if (diffSec <= 0) finishTimer();
+    }
+
+    function finishTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+      timerTargetTime = null;
+      document.getElementById("timer-display").innerText = "00:00";
+      document.getElementById("timer-status").innerText = "⏰ HORA DA SÉRIE!";
+      updateTimerButtons();
+      playBeep();
+      if ("vibrate" in navigator) navigator.vibrate([300, 150, 300, 150, 400]);
+    }
+
+    function updateTimerButtons() {
+      const icon = document.getElementById("timer-icon");
+      const btnText = document.getElementById("timer-btn-text");
+      const btn = document.getElementById("btn-toggle-timer");
+      if (isTimerRunning) {
+        icon.setAttribute("data-lucide", "pause");
+        btnText.innerText = "Pausar";
+        btn.classList.add("bg-amber-500");
+        btn.classList.remove("bg-[#557C55]");
+      } else {
+        icon.setAttribute("data-lucide", "play");
+        btnText.innerText = "Iniciar";
+        btn.classList.remove("bg-amber-500");
+        btn.classList.add("bg-[#557C55]");
+      }
+      lucide.createIcons();
+    }
+
+    function startQuickTimer(sec) {
+      clearInterval(timerInterval);
+      totalTimerDuration = sec;
+      timerTargetTime = Date.now() + sec * 1000;
+      isTimerRunning = true;
+      document.getElementById("timer-status").innerText = `DESCANSO (${sec}s)`;
+      checkTimerTick();
+      updateTimerButtons();
+      timerInterval = setInterval(checkTimerTick, 250);
+    }
+
+    function toggleTimer() {
+      if (isTimerRunning) {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        if (timerTargetTime) totalTimerDuration = Math.max(0, Math.ceil((timerTargetTime - Date.now()) / 1000));
+        timerTargetTime = null;
+        document.getElementById("timer-status").innerText = "PAUSADO";
+      } else {
+        if (totalTimerDuration <= 0) totalTimerDuration = 60;
+        timerTargetTime = Date.now() + totalTimerDuration * 1000;
+        isTimerRunning = true;
+        document.getElementById("timer-status").innerText = "DESCANSANDO...";
+        timerInterval = setInterval(checkTimerTick, 250);
+      }
+      updateTimerButtons();
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+      timerTargetTime = null;
+      totalTimerDuration = 0;
+      document.getElementById("timer-display").innerText = "00:00";
+      document.getElementById("timer-status").innerText = "TIMER PRONTO";
+      updateTimerButtons();
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && isTimerRunning) checkTimerTick();
+    });
+
+    // Modais
+    document.getElementById("btn-sheet-modal").addEventListener("click", openSheetModal);
+    document.getElementById("close-sheet-modal").addEventListener("click", () => document.getElementById("sheet-modal").classList.add("hidden"));
+    document.getElementById("btn-info-modal").addEventListener("click", () => {
+      const m = document.getElementById("info-modal");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+    });
+    document.getElementById("close-info-modal").addEventListener("click", () => document.getElementById("info-modal").classList.add("hidden"));
+    document.getElementById("close-info-btn").addEventListener("click", () => document.getElementById("info-modal").classList.add("hidden"));
+
+    renderTabs();
+    renderContent();
+    syncFromSheets(false);
+  </script>
+</body>
+</html>
